@@ -1,16 +1,31 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 
 namespace VisualConsole {
 
+	/* TERMINOLOGY
+	 * Buffer - the area where characters can be written
+	 * Buffer Array - a matrix of characters written to the buffer
+	 */
+
 	public class GameBuffer {
+
+		StreamWriter standard_input;
+		StreamReader standard_ouput;
 
 		ConsoleColor DEFAULT_FOREGROUND_COLOR { get; set; }
 		ConsoleColor DEFAULT_BACKGROUND_COLOR { get; set; }
 
 		int WIDTH { get; set; }
 		int HEIGHT { get; set; }
+
+		int CONSOLE_START_WIDTH;
+		int BUFFER_START_WIDTH;
+
+		int CONSOLE_START_HEIGHT;
+		int BUFFER_START_HEIGHT;
 
 		ConsoleChar[,] LAST_BUFFER_ARRAY;
 
@@ -36,53 +51,53 @@ namespace VisualConsole {
 
 		}
 
-		public void WriteScreen(ConsoleChar[,] screen_array) {
+		public void WriteBuffer(ConsoleChar[,] buffer_array) {
 
 			// Rewrites the buffer intelligently, only rewriting things that change
 
-			if (screen_array.GetLength(0) > WIDTH)
-				throw new ArgumentOutOfRangeException("screen_array width (dimension 0)");
-			if (screen_array.GetLength(1) > HEIGHT)
-				throw new ArgumentOutOfRangeException("screen_array height (dimension 1)");
+			if (buffer_array.GetLength(0) > WIDTH)
+				throw new ArgumentOutOfRangeException("buffer_array width (dimension 0)");
+			if (buffer_array.GetLength(1) > HEIGHT)
+				throw new ArgumentOutOfRangeException("buffer_array height (dimension 1)");
 
-			List<Vector2> changepoints = CheckBufferAgainstLast(screen_array, LAST_BUFFER_ARRAY);
+			List<Vector2> changepoints = CheckBufferAgainstLast(buffer_array, LAST_BUFFER_ARRAY);
 
 			for (int i = 0; i < changepoints.Count; i++) {
 
-				WriteCharToPosition(screen_array[changepoints[i].x, changepoints[i].y], changepoints[i]);
+				WriteCharToPosition(buffer_array[changepoints[i].x, changepoints[i].y], changepoints[i]);
 
 			}
 
-			CopyBuffer(screen_array, LAST_BUFFER_ARRAY);
+			CopyBufferArray(buffer_array, LAST_BUFFER_ARRAY);
 
 		}
 
-		public void CompleteWriteScreen(ConsoleChar[,] screen_array) {
+		public void CompleteWriteBuffer(ConsoleChar[,] buffer_array) {
 
 			// Completely rewrites the buffer. Very slow.
 
-			if (screen_array.GetLength(0) > WIDTH)
-				throw new ArgumentOutOfRangeException("screen_array width (dimension 0)");
-			if (screen_array.GetLength(1) > HEIGHT)
-				throw new ArgumentOutOfRangeException("screen_array height (dimension 1)");
+			if (buffer_array.GetLength(0) > WIDTH)
+				throw new ArgumentOutOfRangeException("buffer_array width (dimension 0)");
+			if (buffer_array.GetLength(1) > HEIGHT)
+				throw new ArgumentOutOfRangeException("buffer_array height (dimension 1)");
 
 			for (int x = 0; x < WIDTH; x++) {
 
 				for (int y = 0; y < HEIGHT; y++) {
 
-					WriteCharToPosition(screen_array[x, y], new Vector2(x, y));
+					WriteCharToPosition(buffer_array[x, y], new Vector2(x, y));
 
 				}
 
 			}
 
-			CopyBuffer(screen_array, LAST_BUFFER_ARRAY);
+			CopyBufferArray(buffer_array, LAST_BUFFER_ARRAY);
 
 		}
 
-		public ConsoleChar[,] LoadScreenFromFile(string file_name, Vector2 size) {
+		public ConsoleChar[,] LoadBufferArrayFromFile(string file_name, Vector2 size) {
 
-			ConsoleChar[,] screen_array = new ConsoleChar[size.x, size.y];
+			ConsoleChar[,] buffer_array = new ConsoleChar[size.x, size.y];
 
 			using (FileStream file_stream = new FileStream(file_name, FileMode.Open)) {
 
@@ -91,7 +106,7 @@ namespace VisualConsole {
 
 					for (int x = 0; x < size.x; x++) {
 
-						screen_array[x, y] = new ConsoleChar((char)file_stream.ReadByte(), DEFAULT_FOREGROUND_COLOR, DEFAULT_BACKGROUND_COLOR);
+						buffer_array[x, y] = new ConsoleChar((char)file_stream.ReadByte(), DEFAULT_FOREGROUND_COLOR, DEFAULT_BACKGROUND_COLOR);
 
 					}
 
@@ -104,7 +119,7 @@ namespace VisualConsole {
 
 			}
 
-			return screen_array;
+			return buffer_array;
 
 		}
 
@@ -112,7 +127,7 @@ namespace VisualConsole {
 		 * STATIC FUNCTIONS *
 		 ********************/
 
-		public static void CopyBuffer(ConsoleChar[,] source, ConsoleChar[,] destination) {
+		public static void CopyBufferArray(ConsoleChar[,] source, ConsoleChar[,] destination) {
 
 			// Thanks to arrays being passed by reference, we need to use this function
 
@@ -139,7 +154,7 @@ namespace VisualConsole {
 
 		List<Vector2> CheckBufferAgainstLast(ConsoleChar[,] next_array, ConsoleChar[,] last_array) {
 
-			// Compares two buffers. This is an O(n) operation
+			// Compares two buffer arrays. This is an O(n) operation.
 
 			List<Vector2> changepoints = new List<Vector2>();
 
@@ -202,15 +217,25 @@ namespace VisualConsole {
 
 		void SetupBuffer() {
 
+			// In case the program is started from cmd
+			Console.Clear();
+
 			// Makes the cursor invisible
 			Console.CursorVisible = false;
 
+			// Save the original window and buffer dimensions
+			CONSOLE_START_WIDTH = Console.WindowWidth;
+			CONSOLE_START_HEIGHT = Console.WindowHeight;
+
+			BUFFER_START_WIDTH = Console.BufferWidth;
+			BUFFER_START_HEIGHT = Console.BufferHeight;
+
 			// Sets the actual window height and width
 			Console.WindowWidth = WIDTH;
-			Console.BufferWidth = WIDTH;
+			Console.WindowHeight = HEIGHT + 1;
 
 			// Set the text buffer to match the window height and width
-			Console.WindowHeight = HEIGHT + 1;
+			Console.BufferWidth = WIDTH;
 			Console.BufferHeight = HEIGHT + 1;
 
 			// Puts the cursor in the non-use position
@@ -221,6 +246,20 @@ namespace VisualConsole {
 
 			DEFAULT_FOREGROUND_COLOR = ConsoleColor.White;
 			DEFAULT_BACKGROUND_COLOR = ConsoleColor.Black;
+
+		}
+
+		~GameBuffer() {
+
+			// @Robustness: Make this reset the console colors too
+
+			Console.WindowWidth = CONSOLE_START_WIDTH;
+			Console.WindowHeight = CONSOLE_START_HEIGHT;
+
+			Console.BufferWidth = BUFFER_START_WIDTH;
+			Console.BufferHeight = BUFFER_START_HEIGHT;
+
+			Console.Clear();
 
 		}
 

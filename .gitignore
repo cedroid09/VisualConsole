@@ -2,7 +2,11 @@
 *.txt
 *.tar
 
+# testing code
 Program.cs
+
+# yEd
+*.graphml
 
 # Visual Studio
 *.suo
