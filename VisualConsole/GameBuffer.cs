@@ -6,13 +6,13 @@ namespace VisualConsole {
 
 	public class GameBuffer {
 
-		const ConsoleColor DEFAULT_FOREGROUND_COLOR = ConsoleColor.White;
-		const ConsoleColor DEFAULT_BACKGROUND_COLOR = ConsoleColor.Black;
+		ConsoleColor DEFAULT_FOREGROUND_COLOR { get; set; }
+		ConsoleColor DEFAULT_BACKGROUND_COLOR { get; set; }
 
 		int WIDTH { get; set; }
 		int HEIGHT { get; set; }
 
-		public ConsoleChar[,] LAST_BUFFER_ARRAY;
+		ConsoleChar[,] LAST_BUFFER_ARRAY;
 
 		/********************
 		 * PUBLIC FUNCTIONS *
@@ -80,6 +80,34 @@ namespace VisualConsole {
 
 		}
 
+		public ConsoleChar[,] LoadScreenFromFile(string file_name, Vector2 size) {
+
+			ConsoleChar[,] screen_array = new ConsoleChar[size.x, size.y];
+
+			using (FileStream file_stream = new FileStream(file_name, FileMode.Open)) {
+
+				// Go through each row rather than each column so that the array is initialized properly
+				for (int y = 0; y < size.y; y++) {
+
+					for (int x = 0; x < size.x; x++) {
+
+						screen_array[x, y] = new ConsoleChar((char)file_stream.ReadByte(), DEFAULT_FOREGROUND_COLOR, DEFAULT_BACKGROUND_COLOR);
+
+					}
+
+					if (file_stream.Position == file_stream.Length)
+						break;
+
+					while ((char)file_stream.ReadByte() != '\n') ;
+
+				}
+
+			}
+
+			return screen_array;
+
+		}
+
 		/********************
 		 * STATIC FUNCTIONS *
 		 ********************/
@@ -102,34 +130,6 @@ namespace VisualConsole {
 				}
 
 			}
-
-		}
-
-		public static ConsoleChar[,] LoadScreenFromFile(string file_name, Vector2 size) {
-
-			ConsoleChar[,] screen_array = new ConsoleChar[size.x, size.y];
-
-			using (FileStream file_stream = new FileStream(file_name, FileMode.Open)) {
-
-				// Go through each row rather than each column so that the array is initialized properly
-				for (int y = 0; y < size.y; y++) {
-
-					for (int x = 0; x < size.x; x++) {
-
-						screen_array[x, y] = new ConsoleChar((char)file_stream.ReadByte(), ConsoleColor.Black, ConsoleColor.White);
-
-					}
-
-					if (file_stream.Position == file_stream.Length)
-						break;
-
-					while ((char)file_stream.ReadByte() != '\n') ;
-
-				}
-
-			}
-
-			return screen_array;
 
 		}
 
@@ -218,6 +218,9 @@ namespace VisualConsole {
 
 			// Initializes LAST_BUFFER_ARRAY
 			LAST_BUFFER_ARRAY = new ConsoleChar[WIDTH, HEIGHT];
+
+			DEFAULT_FOREGROUND_COLOR = ConsoleColor.White;
+			DEFAULT_BACKGROUND_COLOR = ConsoleColor.Black;
 
 		}
 
